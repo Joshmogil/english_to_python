@@ -1,67 +1,101 @@
 {
     "app_name": "",
     "functions": {
-        "add": {
-            "name": "add",
-            "arguments": "num1: float, num2: float",
-            "returns": "float",
-            "description": "Performs addition of two numbers."
+        "track_transaction": {
+            "name": "track_transaction",
+            "arguments": "transaction: transaction",
+            "returns": "None",
+            "description": "Records a financial transaction in the app."
         },
-        "subtract": {
-            "name": "subtract",
-            "arguments": "num1: float, num2: float",
-            "returns": "float",
-            "description": "Performs subtraction of two numbers."
+        "set_budget": {
+            "name": "set_budget",
+            "arguments": "budget: budget",
+            "returns": "None",
+            "description": "Allows the user to set a budget in the app."
         },
-        "multiply": {
-            "name": "multiply",
-            "arguments": "num1: float, num2: float",
-            "returns": "float",
-            "description": "Performs multiplication of two numbers."
+        "generate_report": {
+            "name": "generate_report",
+            "arguments": "None",
+            "returns": "report: str",
+            "description": "Generates a financial report based on the user's data in the app."
         },
-        "divide": {
-            "name": "divide",
-            "arguments": "num1: float, num2: float",
-            "returns": "float",
-            "description": "Performs division of two numbers."
+        "authenticate_user": {
+            "name": "authenticate_user",
+            "arguments": "username: str, password: str",
+            "returns": "authenticated: bool",
+            "description": "Authenticates the user based on the provided username and password."
+        },
+        "send_notification": {
+            "name": "send_notification",
+            "arguments": "notification: notification",
+            "returns": "None",
+            "description": "Sends a notification to the specified recipient."
+        },
+        "customize_display": {
+            "name": "customize_display",
+            "arguments": "user: user, preferences: str",
+            "returns": "None",
+            "description": "Allows the user to customize the display of financial data based on their preferences."
         }
     },
     "structures": {
-        "calculator": {
-            "name": "calculator",
-            "attributes": "number1: float, number2: float, result: float",
-            "description": "A structure to hold the input numbers and the result of the arithmetic operations."
+        "transaction": {
+            "name": "transaction",
+            "attributes": "date: date, amount: float, category: str, type: str",
+            "description": "Represents a financial transaction with date, amount, category, and type."
+        },
+        "budget": {
+            "name": "budget",
+            "attributes": "amount: float, category: str, period: str",
+            "description": "Represents a budget with an amount, category, and period."
+        },
+        "user": {
+            "name": "user",
+            "attributes": "username: str, password: str, preferences: str",
+            "description": "Represents a user with a username, password, and preferences."
+        },
+        "notification": {
+            "name": "notification",
+            "attributes": "message: str, date: date, recipient: str",
+            "description": "Represents a notification with a message, date, and recipient."
         }
     },
     "relationships": {
-        "input_to_add": {
-            "name": "input_to_add",
-            "rationale": "Passes input numbers from the Calculator to the add function",
-            "actor": "calculator",
-            "reciever": "add",
-            "relation": "passes"
+        "user_transaction": {
+            "name": "user_transaction",
+            "rationale": "A user can have multiple transactions",
+            "actor": "user",
+            "reciever": "transaction",
+            "relation": "has"
         },
-        "input_to_subtract": {
-            "name": "input_to_subtract",
-            "rationale": "Passes input numbers from the Calculator to the subtract function",
-            "actor": "calculator",
-            "reciever": "subtract",
-            "relation": "passes"
+        "user_budget": {
+            "name": "user_budget",
+            "rationale": "A user can set multiple budgets",
+            "actor": "user",
+            "reciever": "budget",
+            "relation": "can_set"
         },
-        "input_to_multiply": {
-            "name": "input_to_multiply",
-            "rationale": "Passes input numbers from the Calculator to the multiply function",
-            "actor": "calculator",
-            "reciever": "multiply",
-            "relation": "passes"
+        "user_notification": {
+            "name": "user_notification",
+            "rationale": "A user can receive multiple notifications",
+            "actor": "user",
+            "reciever": "notification",
+            "relation": "can_receive"
         },
-        "input_to_divide": {
-            "name": "input_to_divide",
-            "rationale": "Passes input numbers from the Calculator to the divide function",
-            "actor": "calculator",
-            "reciever": "divide",
-            "relation": "passes"
+        "user_authentication": {
+            "name": "user_authentication",
+            "rationale": "A user needs to be authenticated to access the app",
+            "actor": "user",
+            "reciever": "authenticate_user",
+            "relation": "needs_to_be_authenticated"
+        },
+        "user_display_customization": {
+            "name": "user_display_customization",
+            "rationale": "A user can customize the display of financial data",
+            "actor": "user",
+            "reciever": "customize_display",
+            "relation": "can_customize"
         }
     },
-    "application_logic": "This application is a simple calculator app that performs basic arithmetic operations such as addition, subtraction, multiplication, and division. It should have a user interface to input two numbers and select the operation to be performed. The app should then display the result of the operation. The data structures for this program include a 'Calculator' structure to hold the input numbers and the result. The functions for this program include 'add', 'subtract', 'multiply', and 'divide' to perform the arithmetic operations. The relationships between the 'Calculator' structure and the arithmetic functions involve passing the input numbers from the 'Calculator' to the respective arithmetic function and receiving the result back from the function to display to the user."
+    "application_logic": "This personal finance app will need to manage and track financial transactions, including income, expenses, and savings. It should also provide the user with the ability to set budgets, categorize transactions, and generate reports. The app should have user authentication to ensure data privacy and security. Additionally, it should be able to send notifications for upcoming bills and financial goals. The user should be able to view their financial data in a clear and organized manner, with the option to customize the display based on their preferences."
 }

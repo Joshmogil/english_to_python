@@ -20,6 +20,7 @@ from prompts import ENGTERPRETER_SYSTEM_PROMPT, ENGTERPRETER_CODER_PROMPT, PROMP
 
 
 
+
 """
 The engterperter is a tool that allows you to write code in English and have it translated into Python code.
 It is designed to be used in an interactive environment, such as a Jupyter notebook or a Python shell.
@@ -59,6 +60,16 @@ class Relationship(BaseModel):
     relation: str = Field(description="One single verb descriging the relationship between the actor and the reciever", example="uses")
 
 
+class Handoff(BaseModel):
+    """A handoff of work from one agent to another"""
+    handoff: str = Field(description="The name of the agent to handoff work to", example="CODER")
+
+class CodeSegment(BaseModel):
+    """A segment of code"""
+    name: str = Field(description="The name of the code segment, must be a function or structure from the application model")
+    code: str = Field(description="A block of code that is either a function or a structure's full implementation")
+
+
 class Application(BaseModel):
     app_name: str =""
     functions: dict[str, Function] = {}
@@ -66,31 +77,37 @@ class Application(BaseModel):
     relationships: dict[str, Relationship] = {}
     application_logic: str = ""
 
+class CodeBase(BaseModel):
+    code_segments: dict[str,CodeSegment] = {}
+
 
 ### Global state
 application_model: Application = Application()
+code_base: CodeBase = CodeBase()
+
 application_code: str = ""
-current_prompt: str = ENGTERPRETER_SYSTEM_PROMPT #this will be dynamically changed by the engterpreter  
-previous_prompt: str = ENGTERPRETER_SYSTEM_PROMPT #this will be dynamically changed by the engterpreter
+
+current_agent= "ARCHITECT" # or "CODER"
 
 
 
-@tool
-def search(query: str) -> str:
-    """Look up things online."""
-    return "LangChain"
 
-@tool()
-def handoff_work_to_coder(handoff:str) -> str:
+@tool(args_schema=Handoff)
+def handoff_work_to_coder(**kwargs) -> str:
     """handoff the work of writing the code to the coder."""
     print("Beginning code generation")
-    global current_prompt
-    global previous_prompt
+    global current_agent
+    current_agent = "CODER"
 
-    previous_prompt = current_prompt
-    current_prompt = ENGTERPRETER_CODER_PROMPT
     return "The work has been handed off to the coder."
 
+@tool(args_schema=Handoff)
+def handoff_work_to_architect(**kwargs) -> str:
+    """handoff the work of designing the application model to the architect."""
+    print("Beginning code generation")
+    global current_agent
+    current_agent = "ARCHITECT"
+    return "Going back to design phase."
 
 @tool
 def create_or_update_application_logic(application_logic: str) -> str:
@@ -100,7 +117,7 @@ def create_or_update_application_logic(application_logic: str) -> str:
 
 @tool
 def create_or_update_application_name(application_name: str) -> str:
-    """Create or update the applciations name."""
+    """Create or update the applications name."""
     application_model.application_logic = application_name
     return "The application's name has been updated."
 
@@ -139,8 +156,12 @@ def remove_function_from_application_model(name: str) -> str:
 def add_or_update_relationship_to_application_model(**kwargs) -> str:
     """Add or update a relationship between structures/functions to the application model."""
     #print(kwargs)
-    application_model.relationships[kwargs['name']] = Relationship(**kwargs)
-    return f"The relationship {kwargs['name']} has been modified in the application model."
+    try:
+        application_model.relationships[kwargs['name']] = Relationship(**kwargs)
+        return f"The relationship {kwargs['name']} has been modified in the application model."
+    except Exception as e:
+        print(e)
+        return f"An error occured while adding the relationship to the application model: {e}"
 
 @tool(args_schema=Relationship)
 def remove_relationship_from_application_model(name: str) -> str:
@@ -151,51 +172,76 @@ def remove_relationship_from_application_model(name: str) -> str:
     else:
         return f"The relationship {name} does not exist in the application model."
 
-@tool
-def add_or_update_code_to_application_model(code: str) -> str:
-    """Add or update code to the application model."""
-    global application_code
-    
-    application_code = code
-    return "The code for the application model has been updated."
+@tool(args_schema=CodeSegment)
+def add_or_update_code_segment_to_code_base(**kwargs) -> str:
+    """Add or update code segment to the code base."""
+    code_base.code_segments[kwargs['name']] = CodeSegment(**kwargs)
+    return f"The code for {kwargs['name']} has been updated in the code base."
 
+@tool(args_schema=CodeSegment)
+def remove_code_segment_from_code_base(**kwargs) -> str:
+    """Add or update code segment to the code base."""
+    code_base.code_segments[kwargs['name']] = CodeSegment(**kwargs)
+    return f"The code for {kwargs['name']} has been updated in the code base."
 
-tools: Sequence[Any] = [
+architect_tools: Sequence[Any] = [
     create_or_update_application_logic,
     create_or_update_application_name,
     add_or_update_structure_to_application_model,
     add_or_update_function_to_application_model,
     add_or_update_relationship_to_application_model,
-    add_or_update_code_to_application_model,
     remove_function_from_application_model,
     remove_relationship_from_application_model,
     remove_structure_from_application_model,
     handoff_work_to_coder
     ]   
 
+coder_tools: Sequence[Any] = [
+    add_or_update_code_segment_to_code_base,
+    remove_code_segment_from_code_base,
+    handoff_work_to_architect
+    ]   
 
 
 class Engterpreter():
 
-    def __init__(self, model: str = "gpt-3.5-turbo-1106"):
+    def __init__(self, arch_model: str = "gpt-3.5-turbo-1106", coder_model: str = "gpt-3.5-turbo-1106"):
         self.program_context: str = "No program context yet. Make sure to ask the user for context of the program."
 
-        initial_prompt = ChatPromptTemplate.from_messages(
+        arch_prompt= ChatPromptTemplate.from_messages(
             [
                 ("system", ENGTERPRETER_SYSTEM_PROMPT),
                 MessagesPlaceholder("chat_history", optional=True),
                 ("human", "{input}"),
                 MessagesPlaceholder("agent_scratchpad"),
             ]
+        )
+
+        coder_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", ENGTERPRETER_CODER_PROMPT),
+                MessagesPlaceholder("chat_history", optional=True),
+                ("human", "{input}"),
+                MessagesPlaceholder("agent_scratchpad"),
+            ]
         ) 
 
-        llm = ChatOpenAI(model=model, temperature=0)
-        self.agent = create_openai_tools_agent(llm, tools, initial_prompt)
-        self.chat_history: list[BaseMessage] = [
+        arch_llm = ChatOpenAI(model=arch_model, temperature=0)
+        coder_llm = ChatOpenAI(model=coder_model, temperature=0)
+        self.architect_agent = create_openai_tools_agent(arch_llm, architect_tools, arch_prompt)
+        self.coder_agent = create_openai_tools_agent(coder_llm, coder_tools,coder_prompt)
+        self.architect_chat_history: list[BaseMessage] = [
+            HumanMessage(content="I'm working on building a program, can you help me?"),
+            AIMessage(content="Sure, let's first figure out what some of the requirements are for the program then we can start building a semantic model of the business logic."),]
+        self.coder_chat_history: list[BaseMessage] = [
             HumanMessage(content="I'm working on building a program, can you help me?"),
             AIMessage(content="Sure, let's first figure out what some of the requirements are for the program then we can start building a semantic model of the business logic."),]
 
-        
+    def render_code_base(self) -> str:
+        code_base_str = ""
+        for segment_name in code_base.code_segments:
+            code_base_str += f"{code_base.code_segments[segment_name].code}\n"
+        return code_base_str
 
     def refresh_program_context(self) -> str:
         
@@ -203,8 +249,9 @@ class Engterpreter():
         program_context += f"\nHow this application should work: {application_model.application_logic}\n"
         structure_header = "\nData Structures for this program: \n"
         functions_header = "\nFunctions for this program: \n"
-        relationships_header = "\nRelationships between data structures and functions for this program: \n"
-        
+        relationships_header = "\nRelationships between data structures and functions for this program. These are more metadata about interactions between Structures and Functions: \n"
+        code_base_header = "\nBEGIN - CODE\n"
+
         program_context += structure_header
         for structure_name in application_model.structures:
             structure: Structure = application_model.structures[structure_name]
@@ -223,6 +270,11 @@ class Engterpreter():
         
         program_context += "END - APPLICATION MODEL\n"
 
+        program_context += code_base_header
+        program_context += self.render_code_base()
+        program_context += "\nEND - CODE\n"
+
+
         self.program_context = program_context
 
 
@@ -232,25 +284,32 @@ class Engterpreter():
 
     def read_in(self, english_sentence: str):
         self.refresh_program_context()
-        agent_executor = AgentExecutor(agent=self.agent, tools=tools, verbose=True)
+        global current_agent
 
-        global current_prompt
-        global previous_prompt
+        if current_agent == "ARCHITECT":
 
-        if previous_prompt != current_prompt:
-            print("Cleaning chat history between sys prompt changes.")
-            self.chat_history = []
-            previous_prompt = current_prompt
+            agent_executor = AgentExecutor(agent=self.architect_agent, tools=architect_tools, verbose=True)
 
-        print(current_prompt)
-        output = agent_executor.invoke(
-                {
-                "input": PROMPT_FACTORY(current_prompt, self.program_context, english_sentence),
-                "chat_history": self.chat_history
-            }
-        )
-        self.refresh_program_context()
-        #print(output["output"])
+            output = agent_executor.invoke(
+                    {
+                    "input": PROMPT_FACTORY(ENGTERPRETER_SYSTEM_PROMPT, self.program_context, english_sentence),
+                    "chat_history": self.architect_chat_history
+                }
+            )
+            self.refresh_program_context()
+            #print(output["output"])
+
+        if current_agent == "CODER":
+            agent_executor = AgentExecutor(agent=self.coder_agent, tools=coder_tools, verbose=True)
+
+            output = agent_executor.invoke(
+                    {
+                    "input": PROMPT_FACTORY(ENGTERPRETER_CODER_PROMPT, self.program_context, english_sentence),
+                    "chat_history": self.coder_chat_history
+                }
+            )
+            self.refresh_program_context()
+            #print(output["output"])
 
     def interpret(self):
         print("Engterpreter is running. Enter a program idea in English!")
@@ -267,11 +326,11 @@ class Engterpreter():
                 with open("application_model.json", "w") as f:
                     f.write(json_object)
 
-                if application_code != "":
+                if self.render_code_base() != "":
                     file_name = application_model.app_name + ".py"
                     print(f"Writing program to {file_name}.")
                     with open(file_name, "w") as f:
-                        f.write(application_code)
+                        f.write(self.render_code_base())
 
                 user_response = input("User input:")
                 print(user_response)
@@ -301,7 +360,6 @@ load_dotenv(find_dotenv())
 
 
 
-engterpreter = Engterpreter()
+engterpreter = Engterpreter(arch_model="gpt-3.5-turbo-1106",coder_model="gpt-3.5-turbo-1106")
 engterpreter.interpret()
 
-    
