@@ -1,4 +1,4 @@
-Side project building a plain english interpreter using LLMs.
+Experiment building a plain english interpreter using LLMs.
 
 To use:
 
