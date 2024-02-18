@@ -9,6 +9,6 @@ To use:
 The agent will build out an application model, which will get converted to python.
 
 You can watch it work by viewing application_model.json as you respond to prompts.
-When the you and the agent are satisfied with the application model, it will translate the intermediary application model to python and output it in the file .py
+When you and the agent are satisfied with the application model, it will translate the intermediary application model to python and output it in the file .py
 
 This project is strictly for demonstration purposes, and will not be updated in any meaningful ways in the future.
